@@ -43,11 +43,12 @@
             <artifactId>druid-spring-boot-3-starter</artifactId>
         </dependency>
 
-        <!-- ShardingSphere 分表 -->
+        <!-- ShardingSphere 分表 - 在 phase1-order 实现分表时引入（正确 artifact 需确认版本）
         <dependency>
             <groupId>org.apache.shardingsphere</groupId>
             <artifactId>shardingsphere-jdbc</artifactId>
         </dependency>
+        -->
 
         <dependency>
             <groupId>org.redisson</groupId>

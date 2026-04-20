@@ -52,7 +52,7 @@
         <knife4j.version>4.4.0</knife4j.version>
         <hutool.version>5.8.26</hutool.version>
         <mapstruct.version>1.5.5.Final</mapstruct.version>
-        <lombok.version>1.18.30</lombok.version>
+        <lombok.version>1.18.36</lombok.version>
         <jjwt.version>0.12.5</jjwt.version>
     </properties>
 
@@ -137,12 +137,13 @@
                 <version>${redisson.version}</version>
             </dependency>
 
-            <!-- ShardingSphere -->
+            <!-- ShardingSphere - 待 phase1-order 时确认正确 artifact 后引入
             <dependency>
                 <groupId>org.apache.shardingsphere</groupId>
                 <artifactId>shardingsphere-jdbc</artifactId>
                 <version>${shardingsphere.version}</version>
             </dependency>
+            -->
 
             <!-- Knife4j (Swagger 3 / OpenAPI) -->
             <dependency>
@@ -225,10 +226,9 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.11.0</version>
+                    <version>3.13.0</version>
                     <configuration>
-                        <source>${java.version}</source>
-                        <target>${java.version}</target>
+                        <release>${java.version}</release>
                         <annotationProcessorPaths>
                             <path>
                                 <groupId>org.projectlombok</groupId>
