@@ -1,0 +1,45 @@
+# ========================
+# Maven
+# ========================
+target/
+*.jar
+*.war
+*.class
+*.log
+dependency-reduced-pom.xml
+
+# ========================
+# IDE
+# ========================
+.idea/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+.vscode/
+*.code-workspace
+
+# ========================
+# OS
+# ========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ========================
+# Docker
+# ========================
+docker/mysql/data/
+docker/redis/data/
+docker/es/data/
+docker/kafka/data/
+
+# ========================
+# Misc
+# ========================
+*.swp
+*.swo
+*~
+.env
