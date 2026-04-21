@@ -44,6 +44,7 @@
 - `backend`：`shop-auth` / `shop-user` / `shop-gateway` 已完成安装构建
 - `frontend`：Vite build 通过
 - 本地网关链路已验证：注册、登录、地址创建/查询、推荐接口均可用
+- Docker 前端链路已验证：`http://127.0.0.1:3000/api/v1/users/register` 返回 `200`
 
 **重要依赖说明**：
 - `shardingsphere-jdbc:5.4.1` 已从 shop-order pom.xml 注释掉（该版本不在 Maven Central），**实现 phase1-order 时需要确认正确的 artifact 坐标**
@@ -58,7 +59,7 @@
 - SSE：`@microsoft/fetch-event-source`（支持 POST + JWT，native EventSource 不支持）
 - 11 页面、4 组件、2 布局、路由守卫
 - 登录、注册、个人中心、地址管理、订单确认页地址选择、首页推荐回退逻辑均已接入真实接口
-- Docker 多阶段镜像，已验证构建成功
+- Docker 多阶段镜像，已验证构建成功；前端容器默认代理宿主机网关 `host.docker.internal:8080`
 
 #### Docker Compose（`docker-compose.yml`）
 
@@ -77,7 +78,8 @@
   - env var 前缀从 `KAFKA_CFG_*` 改为 `KAFKA_*`
   - healthcheck 路径：`/opt/kafka/bin/kafka-topics.sh`
   - 需要 `CLUSTER_ID` 环境变量用于 KRaft storage format
-- nginx 使用 `resolver 127.0.0.11` + `set $upstream` 变量，前端容器可在网关未启动时正常运行
+- `shop-web` 不依赖 Docker 内部的 `shop-gateway` 服务名；当前通过 `GATEWAY_UPSTREAM=host.docker.internal:8080` 访问宿主机上的网关
+- 前端容器重建后，如果浏览器标签页在重建前已经打开，需要**强制刷新**页面，避免继续执行旧的 JS 资源
 
 ---
 
@@ -151,7 +153,7 @@
 
 - 认证：登录、刷新、登出、Refresh Token 轮转、登出后主动失效
 - 鉴权：网关 JWT 过滤、用户服务二次校验、`X-User-Id` / `X-Username` 透传
-- 用户：注册、`/api/v1/users/me/profile`
+- 用户：注册（唯一正式入口：`/api/v1/users/register`）、`/api/v1/users/me/profile`
 - 地址：列表、新增、编辑、删除、设为默认；删除默认地址时自动提升最近更新的一条地址
 - 推荐：`/api/v1/recommendations/me` 已打通，当前为冷启动实现
 - 前端：登录/注册/个人中心/地址管理/首页推荐/订单确认页地址选择已联调
@@ -163,6 +165,8 @@
 - 服务启动顺序建议：`shop-auth` → `shop-user` → `shop-gateway`
 - 当前可直接通过网关 `http://127.0.0.1:8080` 进行端到端联调
 - 可执行 `powershell -ExecutionPolicy Bypass -File .\scripts\phase1-user-smoke.ps1` 做 Phase 1 用户链路回归
+- 如果使用 Docker 前端，入口是 `http://127.0.0.1:3000`，容器会把 `/api/*` 代理到宿主机网关
+- Docker 前端重建后请强刷浏览器，确认页面实际请求的是 `/api/v1/users/register` 而不是旧缓存里的地址
 
 ---
 
@@ -189,7 +193,8 @@
 | `backend/shop-gateway/.../application.yml` | 网关路由，含 `/api/v1/agent/**` → shop-mcp-server |
 | `frontend/src/api/request.ts` | Axios 实例：JWT 注入、单飞 token 刷新、X-Request-Id、错误解包 |
 | `frontend/src/composables/useSSE.ts` | SSE composable（@microsoft/fetch-event-source，支持 POST+JWT） |
-| `frontend/nginx.conf` | SPA fallback + `/api/` proxy（无尾部斜线）+ SSE 配置 |
+| `frontend/nginx.conf.template` | Docker 前端 Nginx 模板；运行时通过 `GATEWAY_UPSTREAM` 渲染实际代理地址 |
+| `frontend/Dockerfile` | 前端多阶段镜像；默认 `GATEWAY_UPSTREAM=host.docker.internal:8080` |
 | `docker-compose.yml` | 基础设施编排，MySQL 3307，Kafka apache/kafka:3.7.0 |
 
 ---

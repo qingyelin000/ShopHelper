@@ -137,6 +137,10 @@ services:
     container_name: shophelper-web
     ports:
       - "3000:80"
+    environment:
+      GATEWAY_UPSTREAM: host.docker.internal:8080
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - nacos
     networks:
