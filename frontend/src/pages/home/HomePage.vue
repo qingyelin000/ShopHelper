@@ -1,15 +1,29 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useUserStore } from '@/stores/user'
 import { listProducts } from '@/api/product'
+import { getMyRecommendations } from '@/api/recommend'
 import type { Product } from '@/types/product.d'
 import ProductCard from '@/components/ProductCard.vue'
+import type { RecommendationItem } from '@/types/recommend.d'
 
 const products = ref<Product[]>([])
 const loading = ref(false)
+const recommendationAlgorithm = ref('')
+const userStore = useUserStore()
 
 onMounted(async () => {
   loading.value = true
   try {
+    if (userStore.isLoggedIn) {
+      const recommendation = await getMyRecommendations('homepage', 10)
+      recommendationAlgorithm.value = recommendation.algorithm
+      if (recommendation.list.length > 0) {
+        products.value = recommendation.list.map(toProductCardModel)
+        return
+      }
+    }
+
     const res = await listProducts({ pageNum: 1, pageSize: 20 })
     products.value = res.list
   } catch {
@@ -18,6 +32,23 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+function toProductCardModel(item: RecommendationItem): Product {
+  return {
+    id: item.productId,
+    name: item.name,
+    categoryId: '',
+    mainImage: item.mainImage,
+    images: [],
+    description: '',
+    minPrice: item.price,
+    maxPrice: item.price,
+    totalStock: 0,
+    totalSales: item.salesCount,
+    status: 1,
+    createdAt: '',
+  }
+}
 </script>
 
 <template>
@@ -30,6 +61,9 @@ onMounted(async () => {
 
     <!-- 商品列表 -->
     <h2 class="text-lg font-bold mb-4">为你推荐</h2>
+    <p v-if="recommendationAlgorithm" class="text-xs text-gray-400 mb-3">
+      推荐策略：{{ recommendationAlgorithm }}
+    </p>
     <el-skeleton :rows="4" animated :loading="loading">
       <template #default>
         <div v-if="products.length" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">

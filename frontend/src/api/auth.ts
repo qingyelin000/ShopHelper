@@ -5,11 +5,17 @@ export interface LoginRequest {
   password: string
 }
 
+interface LoginApiRequest {
+  loginType: 'phone'
+  principal: string
+  password: string
+}
+
 export interface LoginResponse {
   accessToken: string
   refreshToken: string
-  userId: string
-  nickname: string
+  expiresIn: number
+  tokenType: string
 }
 
 export interface RegisterRequest {
@@ -20,12 +26,17 @@ export interface RegisterRequest {
 
 /** 登录 */
 export function login(data: LoginRequest) {
-  return request.post<any, LoginResponse>('/v1/auth/login', data)
+  const payload: LoginApiRequest = {
+    loginType: 'phone',
+    principal: data.phone.trim(),
+    password: data.password,
+  }
+  return request.post<any, LoginResponse>('/v1/auth/login', payload)
 }
 
 /** 注册 */
 export function register(data: RegisterRequest) {
-  return request.post<any, void>('/v1/auth/register', data)
+  return request.post<any, void>('/v1/users/register', data)
 }
 
 /** 登出 */

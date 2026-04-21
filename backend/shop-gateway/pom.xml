@@ -15,6 +15,11 @@
     <description>API 网关：路由 / 限流 / 认证过滤</description>
 
     <dependencies>
+        <dependency>
+            <groupId>com.shophelper</groupId>
+            <artifactId>shop-common-core</artifactId>
+        </dependency>
+
         <!-- Spring Cloud Gateway (Reactive) -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>

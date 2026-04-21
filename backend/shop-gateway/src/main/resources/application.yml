@@ -11,6 +11,8 @@ spring:
       config:
         server-addr: ${NACOS_ADDR:127.0.0.1:8848}
         file-extension: yaml
+        import-check:
+          enabled: false
     gateway:
       discovery:
         locator:
@@ -25,6 +27,10 @@ spring:
           uri: lb://shop-user
           predicates:
             - Path=/api/v1/users/**
+        - id: shop-recommendation
+          uri: lb://shop-user
+          predicates:
+            - Path=/api/v1/recommendations/**
         - id: shop-product
           uri: lb://shop-product
           predicates:
@@ -49,6 +55,10 @@ spring:
           uri: lb://shop-mcp-server
           predicates:
             - Path=/api/v1/agent/**
+
+shop:
+  jwt:
+    secret: ${SHOP_JWT_SECRET:${AUTH_JWT_SECRET:shophelper-auth-jwt-secret-please-change-at-once}}
 
 management:
   endpoints:

@@ -20,6 +20,14 @@ public final class CommonConstants {
     /** JWT 前缀 */
     public static final String TOKEN_PREFIX = "Bearer ";
 
+    /** 网关透传的用户身份头 */
+    public static final String HEADER_USER_ID = "X-User-Id";
+    public static final String HEADER_USERNAME = "X-Username";
+
+    /** 当前请求用户上下文属性 */
+    public static final String ATTR_CURRENT_USER_ID = "currentUserId";
+    public static final String ATTR_CURRENT_USERNAME = "currentUsername";
+
     /** 订单状态 */
     public static final int ORDER_STATUS_PENDING_PAYMENT = 0;
     public static final int ORDER_STATUS_PAID = 1;

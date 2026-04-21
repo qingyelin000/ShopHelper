@@ -1,7 +1,7 @@
 # ShopHelper API 契约文档
 
-> **版本**：v0.1 | **创建时间**：2026-04-21  
-> 本文档覆盖所有核心 REST API 的完整请求 / 响应示例，是各服务模块开发的编码基准。
+> **版本**：v0.4 | **更新时间**：2026-04-21  
+> 本文档覆盖当前已落地核心 REST API 的请求 / 响应示例，是各服务模块开发与联调的编码基准。
 >
 > **阅读说明**：
 > - 所有请求示例默认已带 `Authorization: Bearer <JWT>` 头（无特殊标注时）
@@ -148,6 +148,234 @@
 ```
 
 > Refresh Token 每次刷新后轮转（旧 Token 立即失效）
+
+---
+
+### 2.3 退出登录
+
+`POST /api/v1/auth/logout`  
+**需要 JWT**
+
+**请求（无请求体）：**
+
+```http
+POST /api/v1/auth/logout
+Authorization: Bearer <JWT>
+```
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": null,
+  "requestId": "logout111",
+  "timestamp": 1745162401003
+}
+```
+
+> 服务端会主动撤销该用户当前所有仍有效的 Refresh Token；已签发的 Access Token 不做黑名单拦截，待自然过期
+
+---
+
+## 二B、用户服务 `/api/v1/users`
+
+### 2B.1 用户注册
+
+`POST /api/v1/users/register`  
+**无需 JWT**
+
+**请求：**
+
+```json
+{
+  "phone": "13800138000",
+  "password": "MyPass@2026",
+  "nickname": "小林"
+}
+```
+
+> `nickname` 当前落到用户表 `username` 字段，作为登录展示名与用户名使用
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": null,
+  "requestId": "reg111",
+  "timestamp": 1745162401001
+}
+```
+
+**错误示例（手机号已注册）：**
+
+```json
+{
+  "code": 40001,
+  "message": "手机号已注册",
+  "data": null,
+  "requestId": "reg112",
+  "timestamp": 1745162401002
+}
+```
+
+---
+
+### 2B.2 获取当前用户地址列表
+
+`GET /api/v1/users/me/addresses`
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": [
+    {
+      "id": "190000000000000001",
+      "receiverName": "林小青",
+      "receiverPhone": "138****8000",
+      "province": "广东省",
+      "city": "深圳市",
+      "district": "南山区",
+      "detailAddress": "科技园科苑路 15 号",
+      "postalCode": "518057",
+      "isDefault": true
+    }
+  ],
+  "requestId": "addr111",
+  "timestamp": 1745162401004
+}
+```
+
+---
+
+### 2B.3 新增收货地址
+
+`POST /api/v1/users/me/addresses`
+
+**请求：**
+
+```json
+{
+  "receiverName": "林小青",
+  "receiverPhone": "13800138000",
+  "province": "广东省",
+  "city": "深圳市",
+  "district": "南山区",
+  "detailAddress": "科技园科苑路 15 号",
+  "postalCode": "518057",
+  "isDefault": true
+}
+```
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "id": "190000000000000001",
+    "receiverName": "林小青",
+    "receiverPhone": "138****8000",
+    "province": "广东省",
+    "city": "深圳市",
+    "district": "南山区",
+    "detailAddress": "科技园科苑路 15 号",
+    "postalCode": "518057",
+    "isDefault": true
+  },
+  "requestId": "addr112",
+  "timestamp": 1745162401005
+}
+```
+
+> 当用户还没有任何地址时，首条地址会自动设为默认地址
+
+---
+
+### 2B.4 修改收货地址
+
+`PUT /api/v1/users/me/addresses/{addressId}`
+
+**请求：**
+
+```json
+{
+  "receiverName": "林小青",
+  "receiverPhone": "13800138001",
+  "province": "广东省",
+  "city": "深圳市",
+  "district": "南山区",
+  "detailAddress": "粤海街道高新南一道 8 号",
+  "postalCode": "518057"
+}
+```
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "id": "190000000000000001",
+    "receiverName": "林小青",
+    "receiverPhone": "138****8001",
+    "province": "广东省",
+    "city": "深圳市",
+    "district": "南山区",
+    "detailAddress": "粤海街道高新南一道 8 号",
+    "postalCode": "518057",
+    "isDefault": true
+  },
+  "requestId": "addr113",
+  "timestamp": 1745162401006
+}
+```
+
+---
+
+### 2B.5 删除收货地址
+
+`DELETE /api/v1/users/me/addresses/{addressId}`
+
+> 若删除的是默认地址，系统会自动把最近一条其他地址设为默认地址
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": null,
+  "requestId": "addr114",
+  "timestamp": 1745162401007
+}
+```
+
+---
+
+### 2B.6 设为默认地址
+
+`PUT /api/v1/users/me/addresses/{addressId}/default`
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": null,
+  "requestId": "addr115",
+  "timestamp": 1745162401008
+}
+```
 
 ---
 
@@ -831,24 +1059,21 @@ Idempotency-Key: idem_seckill_actv001_user123_sku001
   "message": "success",
   "data": {
     "userId": "200000000000000001",
-    "preferredCategories": [
-      {"categoryId": "100000000000000002", "categoryName": "女装", "weight": 0.72},
-      {"categoryId": "100000000000000005", "categoryName": "运动户外", "weight": 0.18}
-    ],
+    "preferredCategories": [],
     "priceBandPreference": {
-      "min": 50,
-      "max": 300,
-      "typical": 150
+      "min": 0,
+      "max": 0,
+      "typical": 0
     },
-    "recentBrowseCount": 38,
-    "purchaseCount": 12
+    "recentBrowseCount": 0,
+    "purchaseCount": 0
   },
   "requestId": "mmm111",
   "timestamp": 1745162400000
 }
 ```
 
-> 手机号、地址等敏感信息不在此接口返回
+> 当前 Phase 1 尚未接入浏览 / 购买行为数据管道，空画像是当前实现的正常返回
 
 ---
 
@@ -872,24 +1097,16 @@ GET /api/v1/recommendations/me?scene=homepage&pageSize=10
   "message": "success",
   "data": {
     "scene": "homepage",
-    "list": [
-      {
-        "productId": "390000000000000002",
-        "name": "韩版宽松卫衣外套",
-        "mainImage": "https://cdn.shophelper.com/products/yyy/main.jpg",
-        "price": 159.00,
-        "salesCount": 5620,
-        "recommendTag": "你常购的品类",
-        "score": 0.91
-      }
-    ],
-    "total": 10,
-    "algorithm": "collaborative_filtering_v2"
+    "list": [],
+    "total": 0,
+    "algorithm": "cold_start_v1"
   },
   "requestId": "nnn111",
   "timestamp": 1745162400000
 }
 ```
+
+> 当前为冷启动实现；当 `list` 为空时，前端首页会回退到普通商品列表
 
 ---
 
@@ -954,6 +1171,13 @@ data: {"type":"done","traceId":"5c9c1984f9db438c","data":{}}
 |------|------|-----------|
 | 认证 | POST /auth/login | ✅ |
 | 认证 | POST /auth/refresh | ✅ |
+| 认证 | POST /auth/logout | ✅ |
+| 用户 | POST /users/register | ✅ |
+| 用户 | GET /users/me/addresses | ✅ |
+| 用户 | POST /users/me/addresses | ✅ |
+| 用户 | PUT /users/me/addresses/{id} | ✅ |
+| 用户 | DELETE /users/me/addresses/{id} | ✅ |
+| 用户 | PUT /users/me/addresses/{id}/default | ✅ |
 | 商品 | GET /products/{id} | ✅ |
 | 搜索 | GET /search/products | ✅ |
 | 购物车 | GET /cart | ✅ |
