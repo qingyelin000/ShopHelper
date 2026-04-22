@@ -1,27 +1,47 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
+import { refreshTokens } from '@/api/auth'
 import {
+  bootstrapAdmin,
   createMyAddress,
   deleteMyAddress,
   getMyProfile,
+  listAdminUsers,
   listMyAddresses,
   setDefaultMyAddress,
+  updateAdminUserRole,
   updateMyAddress,
 } from '@/api/user'
-import type { CreateUserAddressRequest, UserAddress, UserProfile } from '@/types/user.d'
+import type {
+  AdminUser,
+  AdminUserPage,
+  CreateUserAddressRequest,
+  UserAddress,
+  UserProfile,
+  UserRole,
+} from '@/types/user.d'
 import { useUserStore } from '@/stores/user'
 import { useAuth } from '@/composables/useAuth'
+import { formatDateTime } from '@/utils'
+import { parseAccessTokenUserInfo } from '@/utils/jwt'
 
 const userStore = useUserStore()
 const { logout } = useAuth()
+
 const profileLoading = ref(false)
 const addressLoading = ref(false)
+const adminLoading = ref(false)
+const addressSubmitting = ref(false)
+const bootstrapSubmitting = ref(false)
+const adminSubmitting = ref(false)
+
 const profile = ref<UserProfile | null>(null)
 const addresses = ref<UserAddress[]>([])
+const adminUsers = ref<AdminUser[]>([])
+
 const addressDialogVisible = ref(false)
-const addressSubmitting = ref(false)
 const editingAddressId = ref<string | null>(null)
 const addressFormRef = ref<FormInstance>()
 
@@ -36,6 +56,29 @@ const addressForm = ref<CreateUserAddressRequest>({
   isDefault: false,
 })
 
+const adminPage = reactive<AdminUserPage>({
+  list: [],
+  total: 0,
+  pageNum: 1,
+  pageSize: 10,
+  hasNext: false,
+})
+
+const bootstrapForm = reactive({
+  username: '',
+  bootstrapToken: '',
+})
+
+const adminFilters = reactive<{
+  keyword: string
+  role: '' | UserRole
+  status: '' | number
+}>({
+  keyword: '',
+  role: '',
+  status: '',
+})
+
 const addressRules: FormRules = {
   receiverName: [{ required: true, message: '请输入收货人姓名', trigger: 'blur' }],
   receiverPhone: [
@@ -47,6 +90,9 @@ const addressRules: FormRules = {
   district: [{ required: true, message: '请输入区县', trigger: 'blur' }],
   detailAddress: [{ required: true, message: '请输入详细地址', trigger: 'blur' }],
 }
+
+const isAdmin = computed(() => userStore.isAdmin)
+const currentRoleText = computed(() => (userStore.role === 'ADMIN' ? '管理员' : '普通用户'))
 
 async function loadProfile() {
   profileLoading.value = true
@@ -67,6 +113,38 @@ async function loadAddresses() {
     ElMessage.error(err.message || '加载收货地址失败')
   } finally {
     addressLoading.value = false
+  }
+}
+
+async function loadAdminUsers(pageNum = 1) {
+  if (!isAdmin.value) {
+    adminUsers.value = []
+    adminPage.list = []
+    adminPage.total = 0
+    adminPage.pageNum = 1
+    adminPage.hasNext = false
+    return
+  }
+
+  adminLoading.value = true
+  try {
+    const data = await listAdminUsers({
+      keyword: adminFilters.keyword.trim() || undefined,
+      role: adminFilters.role || undefined,
+      status: adminFilters.status === '' ? undefined : Number(adminFilters.status),
+      pageNum,
+      pageSize: adminPage.pageSize,
+    })
+    adminUsers.value = data.list
+    adminPage.list = data.list
+    adminPage.total = data.total
+    adminPage.pageNum = data.pageNum
+    adminPage.pageSize = data.pageSize
+    adminPage.hasNext = data.hasNext
+  } catch (err: any) {
+    ElMessage.error(err.message || '加载管理员用户列表失败')
+  } finally {
+    adminLoading.value = false
   }
 }
 
@@ -100,6 +178,32 @@ function openEditAddressDialog(address: UserAddress) {
   addressDialogVisible.value = true
 }
 
+async function handleBootstrapAdmin() {
+  if (!bootstrapForm.username.trim()) {
+    ElMessage.warning('请输入要初始化的用户名')
+    return
+  }
+  if (!bootstrapForm.bootstrapToken.trim()) {
+    ElMessage.warning('请输入 Bootstrap Token')
+    return
+  }
+
+  bootstrapSubmitting.value = true
+  try {
+    await bootstrapAdmin({ username: bootstrapForm.username.trim() }, bootstrapForm.bootstrapToken.trim())
+    const refreshedTokens = await refreshTokens(userStore.refreshToken)
+    userStore.setTokens(refreshedTokens.accessToken, refreshedTokens.refreshToken)
+    userStore.setUserInfo(parseAccessTokenUserInfo(refreshedTokens.accessToken))
+    bootstrapForm.bootstrapToken = ''
+    ElMessage.success('管理员初始化成功，当前登录态已刷新')
+    await loadAdminUsers(1)
+  } catch (err: any) {
+    ElMessage.error(err.message || '管理员初始化失败')
+  } finally {
+    bootstrapSubmitting.value = false
+  }
+}
+
 async function submitAddressForm() {
   const valid = await addressFormRef.value?.validate().catch(() => false)
   if (!valid) return
@@ -131,6 +235,39 @@ async function submitAddressForm() {
   }
 }
 
+async function handleUpdateUserRole(user: AdminUser, role: UserRole) {
+  if (user.role === role) {
+    return
+  }
+
+  adminSubmitting.value = true
+  try {
+    await updateAdminUserRole(user.userId, { role })
+    if (user.userId === userStore.userId) {
+      const refreshedTokens = await refreshTokens(userStore.refreshToken)
+      userStore.setTokens(refreshedTokens.accessToken, refreshedTokens.refreshToken)
+      userStore.setUserInfo(parseAccessTokenUserInfo(refreshedTokens.accessToken))
+    }
+    ElMessage.success(`已将 ${user.username} 设为 ${role}`)
+    await loadAdminUsers(adminPage.pageNum)
+  } catch (err: any) {
+    ElMessage.error(err.message || '更新用户角色失败')
+  } finally {
+    adminSubmitting.value = false
+  }
+}
+
+function resetAdminFilters() {
+  adminFilters.keyword = ''
+  adminFilters.role = ''
+  adminFilters.status = ''
+  void loadAdminUsers(1)
+}
+
+function handleAdminPageChange(page: number) {
+  void loadAdminUsers(page)
+}
+
 async function handleDeleteAddress(address: UserAddress) {
   await ElMessageBox.confirm(`确定删除地址“${address.receiverName}”吗？`, '提示', { type: 'warning' })
   try {
@@ -154,8 +291,12 @@ async function handleSetDefaultAddress(address: UserAddress) {
 }
 
 onMounted(() => {
+  bootstrapForm.username = userStore.nickname
   void loadProfile()
   void loadAddresses()
+  if (isAdmin.value) {
+    void loadAdminUsers(1)
+  }
 })
 </script>
 
@@ -167,6 +308,7 @@ onMounted(() => {
       <el-descriptions title="基本信息" :column="1" border>
         <el-descriptions-item label="用户 ID">{{ profile?.userId || userStore.userId }}</el-descriptions-item>
         <el-descriptions-item label="昵称">{{ userStore.nickname }}</el-descriptions-item>
+        <el-descriptions-item label="当前角色">{{ currentRoleText }}</el-descriptions-item>
         <el-descriptions-item label="最近浏览数">{{ profile?.recentBrowseCount ?? 0 }}</el-descriptions-item>
         <el-descriptions-item label="历史购买数">{{ profile?.purchaseCount ?? 0 }}</el-descriptions-item>
         <el-descriptions-item label="价格偏好">
@@ -196,6 +338,120 @@ onMounted(() => {
         </router-link>
         <el-button type="danger" @click="logout">退出登录</el-button>
       </div>
+    </el-card>
+
+    <el-card shadow="never" class="mt-6">
+      <template #header>
+        <div class="flex items-center justify-between">
+          <span class="font-medium">管理员工具</span>
+          <el-tag :type="isAdmin ? 'danger' : 'info'">{{ currentRoleText }}</el-tag>
+        </div>
+      </template>
+
+      <template v-if="isAdmin">
+        <div class="mb-4 grid gap-3 md:grid-cols-4">
+          <el-input v-model="adminFilters.keyword" placeholder="按昵称搜索" clearable />
+          <el-select v-model="adminFilters.role" placeholder="角色" clearable>
+            <el-option label="管理员" value="ADMIN" />
+            <el-option label="普通用户" value="USER" />
+          </el-select>
+          <el-select v-model="adminFilters.status" placeholder="状态" clearable>
+            <el-option label="启用" :value="1" />
+            <el-option label="禁用" :value="0" />
+          </el-select>
+          <div class="flex gap-2">
+            <el-button type="primary" @click="loadAdminUsers(1)">查询</el-button>
+            <el-button @click="resetAdminFilters">重置</el-button>
+          </div>
+        </div>
+
+        <el-table v-loading="adminLoading" :data="adminUsers" border>
+          <el-table-column prop="username" label="昵称" min-width="160" />
+          <el-table-column prop="userId" label="用户 ID" min-width="180" />
+          <el-table-column label="角色" width="120">
+            <template #default="{ row }">
+              <el-tag :type="row.role === 'ADMIN' ? 'danger' : 'info'">{{ row.role }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="row.status === 1 ? 'success' : 'warning'">
+                {{ row.status === 1 ? '启用' : '禁用' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="创建时间" min-width="168">
+            <template #default="{ row }">
+              {{ formatDateTime(row.createTime) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="更新时间" min-width="168">
+            <template #default="{ row }">
+              {{ formatDateTime(row.updateTime) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" min-width="180" fixed="right">
+            <template #default="{ row }">
+              <div class="flex gap-2">
+                <el-button
+                  size="small"
+                  type="danger"
+                  :disabled="row.role === 'ADMIN' || adminSubmitting"
+                  @click="handleUpdateUserRole(row, 'ADMIN')"
+                >
+                  设为管理员
+                </el-button>
+                <el-button
+                  size="small"
+                  :disabled="row.role === 'USER' || adminSubmitting"
+                  @click="handleUpdateUserRole(row, 'USER')"
+                >
+                  设为普通用户
+                </el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div class="mt-4 flex justify-end">
+          <el-pagination
+            background
+            layout="prev, pager, next, total"
+            :total="adminPage.total"
+            :page-size="adminPage.pageSize"
+            :current-page="adminPage.pageNum"
+            @current-change="handleAdminPageChange"
+          />
+        </div>
+      </template>
+
+      <template v-else>
+        <el-alert
+          title="首个管理员初始化"
+          type="warning"
+          :closable="false"
+          description="仅在系统还没有可用管理员时可成功。初始化成功后会自动刷新当前登录态。"
+          class="mb-4"
+        />
+        <el-form label-width="120px" style="max-width: 640px">
+          <el-form-item label="目标用户名">
+            <el-input v-model="bootstrapForm.username" placeholder="默认当前昵称，也可填写其他已注册用户名" />
+          </el-form-item>
+          <el-form-item label="Bootstrap Token">
+            <el-input
+              v-model="bootstrapForm.bootstrapToken"
+              type="password"
+              show-password
+              placeholder="请输入 SHOP_ADMIN_BOOTSTRAP_TOKEN"
+            />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="bootstrapSubmitting" @click="handleBootstrapAdmin">
+              初始化首个管理员
+            </el-button>
+          </el-form-item>
+        </el-form>
+      </template>
     </el-card>
 
     <el-card shadow="never" class="mt-6" v-loading="addressLoading">

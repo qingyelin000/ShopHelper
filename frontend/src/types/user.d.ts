@@ -1,3 +1,5 @@
+export type UserRole = 'USER' | 'ADMIN'
+
 export interface PreferredCategory {
   categoryId: string
   categoryName: string
@@ -49,4 +51,37 @@ export interface UpdateUserAddressRequest {
   district: string
   detailAddress: string
   postalCode?: string
+}
+
+export interface AdminBootstrapRequest {
+  username: string
+}
+
+export interface AdminUser {
+  userId: string
+  username: string
+  role: UserRole
+  status: number
+  createTime: string
+  updateTime: string
+}
+
+export interface AdminUserQuery {
+  keyword?: string
+  role?: UserRole
+  status?: number
+  pageNum?: number
+  pageSize?: number
+}
+
+export interface AdminUserPage {
+  list: AdminUser[]
+  total: number
+  pageNum: number
+  pageSize: number
+  hasNext: boolean
+}
+
+export interface UpdateAdminUserRoleRequest {
+  role: UserRole
 }

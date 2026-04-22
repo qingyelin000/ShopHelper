@@ -1,24 +1,25 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { getProduct } from '@/api/product'
 import { addToCart } from '@/api/cart'
-import type { Product, ProductSku } from '@/types/product.d'
+import type { ProductDetail, ProductSku } from '@/types/product.d'
 import { formatPrice } from '@/utils'
 import { ElMessage } from 'element-plus'
 
 const route = useRoute()
-const product = ref<Product | null>(null)
+const product = ref<ProductDetail | null>(null)
 const selectedSku = ref<ProductSku | null>(null)
 const quantity = ref(1)
 const loading = ref(false)
+const canAddToCart = computed(() => !!selectedSku.value && selectedSku.value.stock >= quantity.value && selectedSku.value.stock > 0)
 
 onMounted(async () => {
   loading.value = true
   try {
     product.value = await getProduct(route.params.id as string)
     if (product.value?.skuList?.length) {
-      selectedSku.value = product.value.skuList[0]!
+      selectedSku.value = product.value.skuList.find((sku) => sku.stock > 0) ?? product.value.skuList[0]!
     }
   } catch {
     // 后端未就绪
@@ -27,9 +28,24 @@ onMounted(async () => {
   }
 })
 
+watch(selectedSku, (sku) => {
+  if (!sku) return
+  if (sku.stock === 0) {
+    quantity.value = 1
+    return
+  }
+  if (quantity.value > sku.stock) {
+    quantity.value = sku.stock
+  }
+})
+
 async function handleAddToCart() {
   if (!selectedSku.value) {
     ElMessage.warning('请选择商品规格')
+    return
+  }
+  if (!canAddToCart.value) {
+    ElMessage.warning(selectedSku.value.stock > 0 ? '库存不足' : '该规格已售罄')
     return
   }
   try {
@@ -38,6 +54,12 @@ async function handleAddToCart() {
   } catch (err: any) {
     ElMessage.error(err.message || '加入购物车失败')
   }
+}
+
+function formatSkuSpec(spec: ProductSku['spec']) {
+  const labels = Object.entries(spec ?? {})
+    .map(([key, value]) => `${key}: ${value}`)
+  return labels.length > 0 ? labels.join(' / ') : '默认规格'
 }
 </script>
 
@@ -53,11 +75,12 @@ async function handleAddToCart() {
         <!-- 商品信息 -->
         <div class="flex-1">
           <h1 class="text-xl font-bold mb-4">{{ product.name }}</h1>
+          <p v-if="product.subTitle" class="text-sm text-gray-500 mb-4">{{ product.subTitle }}</p>
           <div class="bg-primary/5 p-4 rounded-lg mb-4">
             <span class="text-primary text-2xl font-bold">
-              {{ formatPrice(selectedSku?.price ?? product.minPrice) }}
+              {{ formatPrice(selectedSku?.price ?? product.price) }}
             </span>
-            <span class="text-gray-400 text-sm ml-4">累计销量 {{ product.totalSales }}</span>
+            <span class="text-gray-400 text-sm ml-4">累计销量 {{ product.salesCount }}</span>
           </div>
 
           <!-- SKU 选择 -->
@@ -71,7 +94,7 @@ async function handleAddToCart() {
                 class="cursor-pointer"
                 @click="selectedSku = sku"
               >
-                {{ sku.specJson }}
+                {{ formatSkuSpec(sku.spec) }}
               </el-tag>
             </div>
           </div>
@@ -79,13 +102,15 @@ async function handleAddToCart() {
           <!-- 数量 -->
           <div class="flex items-center gap-4 mb-6">
             <span class="text-sm text-gray-600">数量</span>
-            <el-input-number v-model="quantity" :min="1" :max="selectedSku?.stock ?? 99" />
+            <el-input-number v-model="quantity" :min="1" :max="selectedSku?.stock || 1" />
             <span class="text-xs text-gray-400">库存 {{ selectedSku?.stock ?? 0 }} 件</span>
           </div>
 
           <!-- 操作 -->
           <div class="flex gap-4">
-            <el-button type="primary" size="large" @click="handleAddToCart">加入购物车</el-button>
+            <el-button type="primary" size="large" :disabled="!canAddToCart" @click="handleAddToCart">
+              加入购物车
+            </el-button>
             <el-button type="danger" size="large">立即购买</el-button>
           </div>
         </div>

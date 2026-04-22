@@ -3,6 +3,7 @@ package com.shophelper.gateway.filter;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.shophelper.common.core.constant.CommonConstants;
+import com.shophelper.common.core.enums.UserRole;
 import com.shophelper.common.core.result.ErrorCode;
 import com.shophelper.common.core.result.Result;
 import com.shophelper.common.core.util.JwtTokenUtils;
@@ -42,20 +43,24 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
 
         String authorization = exchange.getRequest().getHeaders().getFirst(CommonConstants.HEADER_AUTHORIZATION);
         if (!StringUtils.hasText(authorization) || !authorization.startsWith(CommonConstants.TOKEN_PREFIX)) {
-            return writeUnauthorized(exchange, "未登录或 Token 已失效");
+            return writeError(exchange, ErrorCode.UNAUTHORIZED, "未登录或 Token 已失效");
         }
 
         String accessToken = authorization.substring(CommonConstants.TOKEN_PREFIX.length()).trim();
         try {
             JwtUserContext userContext = JwtTokenUtils.parseAccessToken(accessToken, gatewayJwtProperties.getSecret());
+            if (requiresAdminRole(path) && userContext.role() != UserRole.ADMIN) {
+                return writeError(exchange, ErrorCode.FORBIDDEN, "权限不足");
+            }
             ServerHttpRequest mutatedRequest = exchange.getRequest()
                     .mutate()
                     .header(CommonConstants.HEADER_USER_ID, String.valueOf(userContext.userId()))
                     .header(CommonConstants.HEADER_USERNAME, userContext.username())
+                    .header(CommonConstants.HEADER_USER_ROLE, userContext.role().name())
                     .build();
             return chain.filter(exchange.mutate().request(mutatedRequest).build());
         } catch (IllegalArgumentException e) {
-            return writeUnauthorized(exchange, e.getMessage());
+            return writeError(exchange, ErrorCode.UNAUTHORIZED, e.getMessage());
         }
     }
 
@@ -66,28 +71,37 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
 
     private boolean requiresAuthentication(String path) {
         return "/api/v1/auth/logout".equals(path)
-                || path.startsWith("/api/v1/users/") && !"/api/v1/users/register".equals(path)
+                || path.startsWith("/api/v1/users/")
+                && !"/api/v1/users/register".equals(path)
+                && !"/api/v1/users/bootstrap/admin".equals(path)
                 || path.startsWith("/api/v1/recommendations")
+                || path.startsWith("/api/v1/products/admin")
+                || path.startsWith("/api/v1/users/admin")
                 || path.startsWith("/api/v1/cart")
                 || path.startsWith("/api/v1/orders")
                 || path.startsWith("/api/v1/seckill")
                 || path.startsWith("/api/v1/agent");
     }
 
-    private Mono<Void> writeUnauthorized(ServerWebExchange exchange, String message) {
+    private boolean requiresAdminRole(String path) {
+        return path.startsWith("/api/v1/products/admin")
+                || path.startsWith("/api/v1/users/admin");
+    }
+
+    private Mono<Void> writeError(ServerWebExchange exchange, ErrorCode errorCode, String message) {
         String requestId = exchange.getRequest().getHeaders().getFirst(CommonConstants.HEADER_REQUEST_ID);
         if (!StringUtils.hasText(requestId)) {
             requestId = UUID.randomUUID().toString().replace("-", "");
         }
 
-        Result<Void> result = Result.<Void>fail(ErrorCode.UNAUTHORIZED, message)
+        Result<Void> result = Result.<Void>fail(errorCode, message)
                 .requestId(requestId);
 
         byte[] body;
         try {
             body = objectMapper.writeValueAsBytes(result);
         } catch (JsonProcessingException e) {
-            body = ("{\"code\":40101,\"message\":\"" + message + "\",\"requestId\":\"" + requestId + "\"}")
+            body = ("{\"code\":" + errorCode.getCode() + ",\"message\":\"" + message + "\",\"requestId\":\"" + requestId + "\"}")
                     .getBytes(StandardCharsets.UTF_8);
         }
 

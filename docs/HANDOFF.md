@@ -1,6 +1,6 @@
 # ShopHelper Phase 1 交接说明
 
-> **状态**：`phase1-user` 已完成并通过本地联调，下一阶段建议开始 `phase1-product`。  
+> **状态**：`phase1-order` 核心链路已完成，下一阶段建议开始 `phase1-seckill`。  
 > **时间**：2026-04-21
 
 ---
@@ -30,10 +30,10 @@
 |------|------|------|
 | shop-gateway | 8080 | JWT 校验 ✅，用户/推荐路由 ✅，业务态 `40101` 返回 ✅ |
 | shop-auth | 8081 | 登录 / 刷新 / 登出 ✅，Refresh Token 轮转与主动撤销 ✅ |
-| shop-user | 8082 | 注册 / 用户画像 / 地址 CRUD / 个性化推荐 ✅ |
-| shop-product | 8083 | 骨架 ✅ |
-| shop-order | 8084 | 骨架 ✅ |
-| shop-cart | 8085 | 骨架 ✅ |
+| shop-user | 8082 | 注册 / 用户画像 / 地址 CRUD / 个性化推荐 ✅，管理员初始化/角色管理 ✅ |
+| shop-product | 8083 | 商品详情/列表 ✅，后台分类/商品/SKU 管理 ✅，管理员 RBAC ✅ |
+| shop-order | 8084 | 下单/列表/详情/取消/MOCK支付 ✅，库存扣减 ✅，购物车结算清理 ✅ |
+| shop-cart | 8085 | Redis 购物车 ✅，JWT 二次校验 ✅，商品快照联动 ✅ |
 | shop-seckill | 8086 | 骨架 ✅ |
 | shop-search | 8087 | 骨架 ✅ |
 | shop-mcp-server | 8088 | 骨架 ✅ |
@@ -41,7 +41,7 @@
 | shop-common-web | — | ✅ GlobalExceptionHandler, RequestIdFilter |
 
 **编译验证**：
-- `backend`：`shop-auth` / `shop-user` / `shop-gateway` 已完成安装构建
+- `backend`：`shop-common-core` / `shop-auth` / `shop-user` / `shop-gateway` / `shop-product` / `shop-cart` / `shop-order` / `shop-search` 已完成编译
 - `frontend`：Vite build 通过
 - 本地网关链路已验证：注册、登录、地址创建/查询、推荐接口均可用
 - Docker 前端链路已验证：`http://127.0.0.1:3000/api/v1/users/register` 返回 `200`
@@ -59,6 +59,8 @@
 - SSE：`@microsoft/fetch-event-source`（支持 POST + JWT，native EventSource 不支持）
 - 11 页面、4 组件、2 布局、路由守卫
 - 登录、注册、个人中心、地址管理、订单确认页地址选择、首页推荐回退逻辑均已接入真实接口
+- 个人中心已新增管理员工具卡片：可做首个管理员初始化与用户角色调试
+- 订单确认页、订单列表页、订单详情页已切到真实订单接口与正式 `items[]` 契约
 - Docker 多阶段镜像，已验证构建成功；前端容器默认代理宿主机网关 `host.docker.internal:8080`
 
 #### Docker Compose（`docker-compose.yml`）
@@ -139,10 +141,11 @@
 2. phase1-web       → 前端 Vue 3 脚手架（Vite + TS + Element Plus + Pinia）✅
 3. phase1-infra     → 基础设施验证（mvn compile + docker compose up）✅
 4. phase1-user      → 用户注册/登录/JWT + 画像 + 地址 + 推荐 ✅
-5. phase1-product   → 商品 CRUD/SKU/库存（依赖 scaffold）⬅ 下一步
-6. phase1-cart      → 购物车（依赖 product）
-7. phase1-order     → 下单流程/状态机（依赖 cart + product）
-8. phase1-db-design → ER 图（可与上面并行）
+5. phase1-product   → 商品 CRUD/SKU/库存（依赖 scaffold）✅
+6. phase1-cart      → 购物车（依赖 product）✅
+7. phase1-order     → 下单流程/状态机（依赖 cart + product）✅
+8. phase1-seckill   → 秒杀活动/资格校验/抢购下单 ⬅ 下一步
+9. phase1-db-design → ER 图（可与上面并行）
 ```
 
 ---
@@ -154,15 +157,78 @@
 - 认证：登录、刷新、登出、Refresh Token 轮转、登出后主动失效
 - 鉴权：网关 JWT 过滤、用户服务二次校验、`X-User-Id` / `X-Username` 透传
 - 用户：注册（唯一正式入口：`/api/v1/users/register`）、`/api/v1/users/me/profile`
+- 管理员：`POST /api/v1/users/bootstrap/admin` 可用一次性 Bootstrap Token 初始化首个管理员；`/api/v1/users/admin/**` 可做角色管理
 - 地址：列表、新增、编辑、删除、设为默认；删除默认地址时自动提升最近更新的一条地址
 - 推荐：`/api/v1/recommendations/me` 已打通，当前为冷启动实现
-- 前端：登录/注册/个人中心/地址管理/首页推荐/订单确认页地址选择已联调
+- 前端：登录/注册/个人中心/地址管理/首页推荐/订单确认页地址选择已联调；个人中心已补管理员工具调试页
+
+### `phase1-product` 新增完成能力
+
+- 商品读接口：`GET /api/v1/products`、`GET /api/v1/products/{productId}`
+- 搜索接口：`GET /api/v1/search/products`（当前为数据库降级实现，后续可升级 ES）
+- 后台接口：`/api/v1/products/admin/**` 已覆盖分类、商品、SKU 的增改删查
+- 商品展示价会随 SKU 变更自动刷新为当前启用 SKU 最低价
+- 商品上架约束：至少存在一个启用 SKU 才允许 `ON_SALE`
+- RBAC：用户新增 `role` 字段，注册默认 `USER`；商品后台接口要求 `ADMIN`
+- 迁移文件：`scripts/phase1-rbac-migrate.sql` 可用于现有数据库补 `role` 列
+
+### `phase1-cart` 已完成前置能力
+
+- `shop-product` 已提供内部 SKU 快照接口：
+  - `GET /internal/products/skus/{skuId}/snapshot`
+  - `POST /internal/products/skus/snapshots/query`
+- 快照内容包含：商品名、商品图、SKU 编码、SKU 规格、单价、库存、商品状态、SKU 状态、`isAvailable`
+- `shop-cart` 已补齐到 `shop-product` 的 Feign Client 契约，可直接用于下一段购物车实现
+
+### `phase1-cart` 新增完成能力
+
+- 购物车接口已落地：
+  - `GET /api/v1/cart`
+  - `POST /api/v1/cart/items`
+  - `PUT /api/v1/cart/items/{itemId}`
+  - `DELETE /api/v1/cart/items/{itemId}`
+  - `DELETE /api/v1/cart`
+- 购物车底层使用 Redis `cart:{userId}`，同一 SKU 合并数量，活跃访问会续期
+- `shop-cart` 已增加 JWT 二次校验，避免绕过网关直连
+- 购物车快照会实时同步商品服务里的最新名称、图片、规格、单价、库存和可售状态
+- 当前前端购物车页、商品详情页加购、订单确认页商品清单均已改为消费购物车快照结构
+
+### `phase1-order` 新增完成能力
+
+- 订单接口已落地：
+  - `POST /api/v1/orders`
+  - `GET /api/v1/orders`
+  - `GET /api/v1/orders/{orderId}`
+  - `POST /api/v1/orders/{orderId}/cancel`
+  - `POST /api/v1/orders/{orderId}/pay`
+  - `POST /api/v1/orders/{orderId}/confirm`
+- 下单已按正式契约使用 `items[{ skuId, quantity }]`，不再依赖旧的 `cartItemIds`
+- 订单服务会同步校验地址归属、商品上架状态、SKU 启用状态与库存，并在事务内执行库存扣减
+- 订单创建成功后会清理 Redis 购物车中的已结算 SKU，避免购物车残留
+- 当前支付为 `MOCK` 打通版；支付回调、发货、超时取消仍可在后续阶段继续补齐
+
+### 下一位 Agent 建议直接接手的方向
+
+- 首选：继续 `phase1-seckill`，复用现有订单创建与地址校验能力
+- 如果继续深挖订单：优先补 `payment-callback`、发货流转、超时取消任务，再考虑真实支付对接
+- 当前订单相关前后端契约已经统一到字符串状态枚举和 `items[]` 下单结构，不要再回退到旧的 `cartItemIds`
+
+### 管理员初始化/角色管理补充
+
+- `shop-user` 新增一次性管理员初始化接口：`POST /api/v1/users/bootstrap/admin`
+- 需要在环境变量中配置 `SHOP_ADMIN_BOOTSTRAP_TOKEN`，并通过请求头 `X-Bootstrap-Token` 传入
+- 该初始化接口仅在“系统内还没有可用管理员”时可执行；初始化完成后自动失效
+- 后续角色管理统一走：
+  - `GET /api/v1/users/admin`
+  - `PUT /api/v1/users/admin/{userId}/role`
+- 网关与用户服务都会对 `/api/v1/users/admin/**` 做 `ADMIN` 角色校验，并阻止降级最后一个可用管理员
 
 ### 本地运行提示
 
 - 先启动 `docker-compose.yml` 中的 `mysql`、`redis`、`nacos`
 - MySQL 使用主机端口 `3307`
 - 服务启动顺序建议：`shop-auth` → `shop-user` → `shop-gateway`
+- 若要初始化首个管理员，先为 `shop-user` 配置 `SHOP_ADMIN_BOOTSTRAP_TOKEN`
 - 当前可直接通过网关 `http://127.0.0.1:8080` 进行端到端联调
 - 可执行 `powershell -ExecutionPolicy Bypass -File .\scripts\phase1-user-smoke.ps1` 做 Phase 1 用户链路回归
 - 如果使用 Docker 前端，入口是 `http://127.0.0.1:3000`，容器会把 `/api/*` 代理到宿主机网关

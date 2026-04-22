@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { Product } from '@/types/product.d'
+import type { ProductSummary } from '@/types/product.d'
 import { formatPrice } from '@/utils'
 
 defineProps<{
-  product: Product
+  product: ProductSummary
 }>()
 </script>
 
@@ -14,8 +14,8 @@ defineProps<{
       <div class="p-3">
         <p class="text-sm text-gray-700 line-clamp-2 mb-2">{{ product.name }}</p>
         <div class="flex-between">
-          <span class="text-primary font-bold text-lg">{{ formatPrice(product.minPrice) }}</span>
-          <span class="text-gray-400 text-xs">{{ product.totalSales }}人付款</span>
+          <span class="text-primary font-bold text-lg">{{ formatPrice(product.price) }}</span>
+          <span class="text-gray-400 text-xs">{{ product.salesCount }}人付款</span>
         </div>
       </div>
     </el-card>

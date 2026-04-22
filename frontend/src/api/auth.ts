@@ -34,6 +34,11 @@ export function login(data: LoginRequest) {
   return request.post<any, LoginResponse>('/v1/auth/login', payload)
 }
 
+/** 刷新 Token */
+export function refreshTokens(refreshToken: string) {
+  return request.post<any, LoginResponse>('/v1/auth/refresh', { refreshToken })
+}
+
 /** 注册 */
 export function register(data: RegisterRequest) {
   return request.post<any, void>('/v1/users/register', data)

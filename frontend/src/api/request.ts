@@ -4,6 +4,7 @@ import type { Result, ApiError } from '@/types/api.d'
 import { ErrorCode } from '@/types/api.d'
 import { useUserStore } from '@/stores/user'
 import router from '@/router'
+import { parseAccessTokenUserInfo } from '@/utils/jwt'
 
 /** 生成请求 ID */
 function generateRequestId(): string {
@@ -28,6 +29,7 @@ async function doRefreshToken(): Promise<string> {
   if (data.code === ErrorCode.SUCCESS && data.data) {
     const { accessToken, refreshToken } = data.data
     userStore.setTokens(accessToken, refreshToken)
+    userStore.setUserInfo(parseAccessTokenUserInfo(accessToken))
     return accessToken
   }
   throw new Error(data.message || 'Token 刷新失败')

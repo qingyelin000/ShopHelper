@@ -1,45 +1,56 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { listOrders } from '@/api/order'
-import type { Order } from '@/types/order.d'
+import type { OrderStatus, OrderSummary } from '@/types/order.d'
 import OrderStatusTag from '@/components/OrderStatus.vue'
 import { formatPrice, formatDateTime } from '@/utils'
+import { ElMessage } from 'element-plus'
 
-const orders = ref<Order[]>([])
+const orders = ref<OrderSummary[]>([])
 const total = ref(0)
 const pageNum = ref(1)
-const activeTab = ref<string>('all')
 const loading = ref(false)
+const activeTab = ref<'all' | OrderStatus>('all')
 
-const tabs = [
+const tabs: Array<{ label: string; value: 'all' | OrderStatus }> = [
   { label: '全部', value: 'all' },
-  { label: '待付款', value: '0' },
-  { label: '已付款', value: '1' },
-  { label: '已发货', value: '2' },
-  { label: '已完成', value: '3' },
+  { label: '待付款', value: 'PENDING_PAYMENT' },
+  { label: '已付款', value: 'PAID' },
+  { label: '已发货', value: 'SHIPPED' },
+  { label: '已完成', value: 'COMPLETED' },
+  { label: '退款中', value: 'REFUNDING' },
 ]
 
 async function fetchOrders() {
   loading.value = true
   try {
-    const params: any = { pageNum: pageNum.value, pageSize: 10 }
-    if (activeTab.value !== 'all') params.status = Number(activeTab.value)
-    const res = await listOrders(params)
+    const res = await listOrders({
+      status: activeTab.value === 'all' ? undefined : activeTab.value,
+      pageNum: pageNum.value,
+      pageSize: 10,
+    })
     orders.value = res.list
     total.value = res.total
-  } catch {
-    // 后端未就绪
+  } catch (err: any) {
+    ElMessage.error(err.message || '加载订单列表失败')
   } finally {
     loading.value = false
   }
 }
 
-onMounted(fetchOrders)
-
 function handleTabChange() {
   pageNum.value = 1
-  fetchOrders()
+  void fetchOrders()
 }
+
+function handlePageChange(page: number) {
+  pageNum.value = page
+  void fetchOrders()
+}
+
+onMounted(() => {
+  void fetchOrders()
+})
 </script>
 
 <template>
@@ -53,22 +64,34 @@ function handleTabChange() {
     <el-skeleton :rows="3" animated :loading="loading">
       <template #default>
         <div v-if="orders.length" class="space-y-4">
-          <el-card v-for="order in orders" :key="order.id" shadow="never">
-            <div class="flex-between mb-3">
-              <span class="text-sm text-gray-400">{{ formatDateTime(order.createdAt) }}</span>
-              <OrderStatusTag :status="order.status" />
-            </div>
-            <div v-for="item in order.items" :key="item.id" class="flex items-center gap-3 py-2">
-              <img :src="item.productImage" class="w-16 h-16 object-cover rounded" />
-              <div class="flex-1">
-                <p class="text-sm">{{ item.productName }}</p>
-                <p class="text-xs text-gray-400">{{ item.specJson }} × {{ item.quantity }}</p>
+          <el-card v-for="order in orders" :key="order.orderId" shadow="never">
+            <div class="flex-between mb-4">
+              <div>
+                <div class="font-medium">{{ order.orderNo }}</div>
+                <div class="text-sm text-gray-400 mt-1">{{ formatDateTime(order.createTime) }}</div>
               </div>
-              <span class="text-primary">{{ formatPrice(item.price) }}</span>
+              <OrderStatusTag :status="order.orderStatus" />
             </div>
-            <div class="text-right mt-3 pt-3 border-t border-gray-100">
-              <span>合计：<span class="text-primary font-bold text-lg">{{ formatPrice(order.totalAmount) }}</span></span>
-              <router-link :to="`/order/${order.id}`" class="ml-4">
+
+            <div class="flex items-center gap-4">
+              <img
+                :src="order.coverImage || 'https://via.placeholder.com/80x80?text=Order'"
+                class="w-20 h-20 object-cover rounded"
+              />
+              <div class="flex-1">
+                <p class="text-sm">共 {{ order.itemCount }} 件商品</p>
+                <p v-if="order.expireTime" class="text-xs text-gray-400 mt-1">
+                  支付截止：{{ formatDateTime(order.expireTime) }}
+                </p>
+              </div>
+              <div class="text-right">
+                <p class="text-sm text-gray-400">实付金额</p>
+                <p class="text-primary font-bold text-lg">{{ formatPrice(order.payAmount) }}</p>
+              </div>
+            </div>
+
+            <div class="text-right mt-4 pt-4 border-t border-gray-100">
+              <router-link :to="`/order/${order.orderId}`">
                 <el-button size="small">查看详情</el-button>
               </router-link>
             </div>
@@ -84,7 +107,7 @@ function handleTabChange() {
         :page-size="10"
         :total="total"
         layout="prev, pager, next"
-        @current-change="(p: number) => { pageNum = p; fetchOrders() }"
+        @current-change="handlePageChange"
       />
     </div>
   </div>

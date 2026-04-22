@@ -1,6 +1,7 @@
 package com.shophelper.user.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.shophelper.common.core.enums.UserRole;
 import com.shophelper.common.core.exception.BusinessException;
 import com.shophelper.common.core.result.ErrorCode;
 import com.shophelper.common.core.util.PhoneSecurityUtils;
@@ -39,6 +40,7 @@ public class UserRegistrationService {
                 userSecurityProperties.getPhoneEncryptSecret()
         ));
         user.setStatus(1);
+        user.setRole(UserRole.USER.name());
         user.setDeleteVersion(0L);
         user.setIsDeleted(0);
 

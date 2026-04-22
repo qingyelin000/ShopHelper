@@ -14,8 +14,8 @@ const loading = ref(false)
 onMounted(async () => {
   loading.value = true
   try {
-    const items = await getCart()
-    cartStore.setItems(items)
+    const snapshot = await getCart()
+    cartStore.setSnapshot(snapshot)
   } catch {
     // 后端未就绪
   } finally {
@@ -24,26 +24,51 @@ onMounted(async () => {
 })
 
 const isAllChecked = computed(() =>
-  cartStore.items.length > 0 && cartStore.items.every((i) => i.checked),
+  cartStore.items.length > 0 && cartStore.items.every((i) => i.selected),
 )
 
-async function handleUpdateQuantity(skuId: string, quantity: number) {
+async function handleUpdateQuantity(itemId: string, quantity: number) {
   try {
-    await updateCartItem(skuId, quantity)
-    cartStore.updateQuantity(skuId, quantity)
+    const snapshot = await updateCartItem(itemId, { quantity })
+    cartStore.setSnapshot(snapshot)
   } catch (err: any) {
     ElMessage.error(err.message || '更新失败')
   }
 }
 
-async function handleRemove(skuId: string) {
+async function handleRemove(itemId: string) {
   await ElMessageBox.confirm('确定删除该商品吗？', '提示', { type: 'warning' })
   try {
-    await removeCartItem(skuId)
-    cartStore.removeItem(skuId)
+    const snapshot = await removeCartItem(itemId)
+    cartStore.setSnapshot(snapshot)
     ElMessage.success('已删除')
   } catch (err: any) {
     ElMessage.error(err.message || '删除失败')
+  }
+}
+
+async function handleToggleCheck(itemId: string, selected: boolean) {
+  try {
+    const snapshot = await updateCartItem(itemId, { selected })
+    cartStore.setSnapshot(snapshot)
+  } catch (err: any) {
+    ElMessage.error(err.message || '更新失败')
+  }
+}
+
+async function handleToggleCheckAll(selected: boolean) {
+  const targets = cartStore.items.filter((item) => item.isAvailable && item.selected !== selected)
+  if (targets.length === 0) return
+  loading.value = true
+  try {
+    for (const item of targets) {
+      const snapshot = await updateCartItem(item.itemId, { selected })
+      cartStore.setSnapshot(snapshot)
+    }
+  } catch (err: any) {
+    ElMessage.error(err.message || '更新失败')
+  } finally {
+    loading.value = false
   }
 }
 
@@ -65,18 +90,18 @@ function goCheckout() {
         <div v-if="cartStore.items.length">
           <!-- 全选 -->
           <div class="flex items-center gap-2 mb-2 text-sm text-gray-500">
-            <el-checkbox :model-value="isAllChecked" @change="(val: boolean) => cartStore.toggleCheckAll(val)">
+            <el-checkbox :model-value="isAllChecked" @change="(val: unknown) => handleToggleCheckAll(!!val)">
               全选
             </el-checkbox>
           </div>
 
           <CartItemComp
             v-for="item in cartStore.items"
-            :key="item.skuId"
+            :key="item.itemId"
             :item="item"
             @update-quantity="handleUpdateQuantity"
             @remove="handleRemove"
-            @toggle-check="cartStore.toggleCheck"
+            @toggle-check="handleToggleCheck"
           />
 
           <!-- 结算栏 -->

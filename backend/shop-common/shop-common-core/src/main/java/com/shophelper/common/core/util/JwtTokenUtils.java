@@ -1,5 +1,6 @@
 package com.shophelper.common.core.util;
 
+import com.shophelper.common.core.enums.UserRole;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.JwtException;
@@ -31,11 +32,12 @@ public final class JwtTokenUtils {
             String tokenType = claims.get("tokenType", String.class);
             String subject = claims.getSubject();
             String username = claims.get("username", String.class);
+            String role = claims.get("role", String.class);
             if (!"access".equals(tokenType) || subject == null || username == null || username.isBlank()) {
                 throw new IllegalArgumentException("Token 缺少有效用户信息");
             }
 
-            return new JwtUserContext(Long.parseLong(subject), username);
+            return new JwtUserContext(Long.parseLong(subject), username, UserRole.from(role));
         } catch (JwtException | IllegalArgumentException e) {
             throw new IllegalArgumentException("未登录或 Token 已失效", e);
         }

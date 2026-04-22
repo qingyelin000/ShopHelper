@@ -2,6 +2,7 @@ package com.shophelper.auth.service;
 
 import com.shophelper.auth.config.AuthProperties;
 import com.shophelper.auth.entity.UserEntity;
+import com.shophelper.common.core.enums.UserRole;
 import com.shophelper.common.core.exception.BusinessException;
 import com.shophelper.common.core.result.ErrorCode;
 import com.shophelper.common.core.util.JwtTokenUtils;
@@ -9,6 +10,7 @@ import com.shophelper.common.core.util.JwtUserContext;
 import io.jsonwebtoken.Jwts;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import javax.crypto.SecretKey;
 import java.time.Instant;
@@ -26,10 +28,12 @@ public class JwtTokenService {
     public String generateAccessToken(UserEntity user) {
         Instant now = Instant.now();
         Instant expiresAt = now.plusSeconds(authProperties.getAccessTokenExpiresInSeconds());
+        String role = StringUtils.hasText(user.getRole()) ? user.getRole() : UserRole.USER.name();
 
         return Jwts.builder()
                 .subject(String.valueOf(user.getId()))
                 .claim("username", user.getUsername())
+                .claim("role", role)
                 .claim("tokenType", "access")
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiresAt))

@@ -31,6 +31,8 @@ public class UserEntity {
 
     private Integer status;
 
+    private String role;
+
     private Long deleteVersion;
 
     private LocalDateTime createTime;

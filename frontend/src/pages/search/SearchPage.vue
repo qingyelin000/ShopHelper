@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { searchProducts } from '@/api/product'
 import type { SearchProduct } from '@/types/product.d'
 import { formatPrice } from '@/utils'
 
 const route = useRoute()
-const router = useRouter()
 const products = ref<SearchProduct[]>([])
 const total = ref(0)
 const pageNum = ref(1)
@@ -60,12 +59,12 @@ function handlePageChange(page: number) {
             class="no-underline"
           >
             <el-card shadow="hover" :body-style="{ padding: '0' }">
-              <img :src="p.mainImage" :alt="p.name" class="w-full h-48 object-cover" />
-              <div class="p-3">
-                <p class="text-sm text-gray-700 line-clamp-2 mb-2" v-html="p.highlightName || p.name" />
-                <div class="flex-between">
-                  <span class="text-primary font-bold">{{ formatPrice(p.price) }}</span>
-                  <span class="text-gray-400 text-xs">{{ p.salesCount }}人付款</span>
+               <img :src="p.mainImage" :alt="p.name" class="w-full h-48 object-cover" />
+               <div class="p-3">
+                 <p class="text-sm text-gray-700 line-clamp-2 mb-2" v-html="p.highlight?.name || p.name" />
+                 <div class="flex-between">
+                   <span class="text-primary font-bold">{{ formatPrice(p.price) }}</span>
+                   <span class="text-gray-400 text-xs">{{ p.salesCount }}人付款</span>
                 </div>
               </div>
             </el-card>

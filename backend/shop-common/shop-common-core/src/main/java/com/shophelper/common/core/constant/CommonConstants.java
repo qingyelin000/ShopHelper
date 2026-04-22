@@ -17,16 +17,21 @@ public final class CommonConstants {
     /** JWT 认证头名称 */
     public static final String HEADER_AUTHORIZATION = "Authorization";
 
+    /** 管理员初始化令牌头 */
+    public static final String HEADER_BOOTSTRAP_TOKEN = "X-Bootstrap-Token";
+
     /** JWT 前缀 */
     public static final String TOKEN_PREFIX = "Bearer ";
 
     /** 网关透传的用户身份头 */
     public static final String HEADER_USER_ID = "X-User-Id";
     public static final String HEADER_USERNAME = "X-Username";
+    public static final String HEADER_USER_ROLE = "X-User-Role";
 
     /** 当前请求用户上下文属性 */
     public static final String ATTR_CURRENT_USER_ID = "currentUserId";
     public static final String ATTR_CURRENT_USERNAME = "currentUsername";
+    public static final String ATTR_CURRENT_USER_ROLE = "currentUserRole";
 
     /** 订单状态 */
     public static final int ORDER_STATUS_PENDING_PAYMENT = 0;

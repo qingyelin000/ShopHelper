@@ -197,6 +197,7 @@ Authorization: Bearer <JWT>
 ```
 
 > `nickname` 当前落到用户表 `username` 字段，作为登录展示名与用户名使用
+> 新注册用户角色固定为 `USER`；管理员账号需通过受控初始化（Bootstrap Token）或数据库变更授予 `ADMIN`
 
 **响应：**
 
@@ -219,6 +220,135 @@ Authorization: Bearer <JWT>
   "data": null,
   "requestId": "reg112",
   "timestamp": 1745162401002
+}
+```
+
+---
+
+### 2B.1A 初始化首个管理员
+
+`POST /api/v1/users/bootstrap/admin`  
+**无需 JWT**
+
+> 请求头必须携带：`X-Bootstrap-Token: <SHOP_ADMIN_BOOTSTRAP_TOKEN>`  
+> 该接口仅在系统内还没有可用管理员时可调用一次。
+
+**请求：**
+
+```json
+{
+  "username": "小林"
+}
+```
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "userId": "190000000000000001",
+    "username": "小林",
+    "role": "ADMIN",
+    "status": 1,
+    "createTime": "2026-04-21T10:00:00+08:00",
+    "updateTime": "2026-04-22T09:30:00+08:00"
+  },
+  "requestId": "bootstrap111",
+  "timestamp": 1745162401003
+}
+```
+
+**错误示例（系统已有管理员）：**
+
+```json
+{
+  "code": 40301,
+  "message": "系统中已存在管理员，不能再次初始化",
+  "data": null,
+  "requestId": "bootstrap112",
+  "timestamp": 1745162401004
+}
+```
+
+---
+
+### 2B.1B 管理员用户列表
+
+`GET /api/v1/users/admin?keyword=lin&role=ADMIN&status=1&pageNum=1&pageSize=20`  
+**必须携带管理员 JWT**
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "list": [
+      {
+        "userId": "190000000000000001",
+        "username": "小林",
+        "role": "ADMIN",
+        "status": 1,
+        "createTime": "2026-04-21T10:00:00+08:00",
+        "updateTime": "2026-04-22T09:30:00+08:00"
+      }
+    ],
+    "total": 1,
+    "pageNum": 1,
+    "pageSize": 20,
+    "hasNext": false
+  },
+  "requestId": "userAdmin111",
+  "timestamp": 1745162401005
+}
+```
+
+---
+
+### 2B.1C 修改用户角色
+
+`PUT /api/v1/users/admin/{userId}/role`  
+**必须携带管理员 JWT**
+
+**请求：**
+
+```json
+{
+  "role": "ADMIN"
+}
+```
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "userId": "190000000000000002",
+    "username": "运营同学",
+    "role": "ADMIN",
+    "status": 1,
+    "createTime": "2026-04-21T12:00:00+08:00",
+    "updateTime": "2026-04-22T09:35:00+08:00"
+  },
+  "requestId": "userAdmin112",
+  "timestamp": 1745162401006
+}
+```
+
+**错误示例（尝试降级最后一个可用管理员）：**
+
+```json
+{
+  "code": 40001,
+  "message": "系统至少需要保留一个可用管理员",
+  "data": null,
+  "requestId": "userAdmin113",
+  "timestamp": 1745162401007
 }
 ```
 
@@ -498,6 +628,37 @@ GET /api/v1/search/products?keyword=红色连衣裙&categoryId=&priceMin=0&price
   "timestamp": 1745162400000
 }
 ```
+
+---
+
+### 3.3 商品后台管理（新增）
+
+> 当前为 Phase 1 内部管理接口，统一挂在 `/api/v1/products/admin/**`，用于分类、商品、SKU 的增改删查。  
+> **必须携带管理员 JWT**；普通用户或未登录请求均不可调用。  
+> 状态枚举：商品 `PENDING_REVIEW | ON_SALE | OFF_SALE`，分类/SKU `ENABLED | DISABLED`
+
+| 接口 | 说明 | 关键参数 |
+|------|------|---------|
+| `GET /api/v1/products/admin/categories` | 查询分类列表 | 无 |
+| `GET /api/v1/products/admin/categories/{categoryId}` | 查询分类详情 | `categoryId` |
+| `POST /api/v1/products/admin/categories` | 新增分类 | `parentId?`, `name`, `iconUrl?`, `sortOrder?`, `status` |
+| `PUT /api/v1/products/admin/categories/{categoryId}` | 更新分类 | 同新增 |
+| `DELETE /api/v1/products/admin/categories/{categoryId}` | 删除分类 | 仅当无子分类且无商品时允许 |
+| `GET /api/v1/products/admin` | 查询商品列表 | `categoryId?`, `status?`, `keyword?`, `pageNum?`, `pageSize?` |
+| `GET /api/v1/products/admin/{productId}` | 查询商品详情（含全部未删除 SKU） | `productId` |
+| `POST /api/v1/products/admin` | 新增商品 | `categoryId`, `name`, `subTitle?`, `mainImage?`, `description?`, `status` |
+| `PUT /api/v1/products/admin/{productId}` | 更新商品 | 同新增 |
+| `DELETE /api/v1/products/admin/{productId}` | 删除商品 | 逻辑删除商品及其 SKU |
+| `POST /api/v1/products/admin/{productId}/skus` | 新增 SKU | `skuCode`, `spec`, `price`, `stock`, `status` |
+| `PUT /api/v1/products/admin/{productId}/skus/{skuId}` | 更新 SKU | 同新增 |
+| `DELETE /api/v1/products/admin/{productId}/skus/{skuId}` | 删除 SKU | 商品上架时不允许删除最后一个启用 SKU |
+
+**约束说明：**
+
+- 商品展示价 `product.price` 会在 SKU 新增/更新/删除后同步刷新为“当前启用 SKU 的最低价”
+- 新商品如果尚未配置可售 SKU，不允许直接创建为 `ON_SALE`
+- 已上架商品至少需要保留一个启用 SKU；若要清空或禁用最后一个启用 SKU，需先把商品改为 `OFF_SALE`
+- SKU 仍遵循全局 `skuCode` 唯一、同一商品下 `spec_hash` 唯一
 
 ---
 
@@ -919,6 +1080,26 @@ Idempotency-Key: idem_pay_20260421_user123_order001
   },
   "requestId": "lll112",
   "timestamp": 1745162400000
+}
+```
+
+---
+
+### 5.5A 确认收货
+
+`POST /api/v1/orders/{orderId}/confirm`
+
+> 当前仅允许 `SHIPPED` 状态调用；若订单未发货会返回状态不允许错误。
+
+**响应：**
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": null,
+  "requestId": "lll113",
+  "timestamp": 1745162400001
 }
 ```
 

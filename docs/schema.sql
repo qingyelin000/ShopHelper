@@ -23,6 +23,7 @@ CREATE TABLE `user`
     `email`             VARCHAR(128)              DEFAULT NULL COMMENT '邮箱（可选）',
     `avatar_url`        VARCHAR(512)              DEFAULT NULL,
     `status`            TINYINT          NOT NULL DEFAULT 1 COMMENT '账号状态：1=正常 0=禁用',
+    `role`              VARCHAR(16)      NOT NULL DEFAULT 'USER' COMMENT '角色：USER=普通用户 ADMIN=管理员',
     `delete_version`    BIGINT           NOT NULL DEFAULT 0 COMMENT '软删除版本：未删除为0，删除后置为 id，支持同名账号重新注册',
     `create_time`       DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `update_time`       DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -33,6 +34,7 @@ CREATE TABLE `user`
     -- email 可为 NULL；MySQL UNIQUE 索引允许多个 NULL，不冲突
     UNIQUE KEY `uk_user_email` (`email`, `delete_version`),
     CHECK (`status` IN (0, 1)),
+    CHECK (`role` IN ('USER', 'ADMIN')),
     CHECK (`is_deleted` IN (0, 1))
 ) ENGINE = InnoDB
   DEFAULT CHARSET = utf8mb4 COMMENT ='用户表';

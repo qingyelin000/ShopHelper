@@ -29,6 +29,7 @@ shop:
   user:
     phone-hash-secret: ${SHOP_PHONE_HASH_SECRET:${AUTH_PHONE_HASH_SECRET:shophelper-phone-hash-secret-please-change}}
     phone-encrypt-secret: ${SHOP_PHONE_ENCRYPT_SECRET:shophelper-phone-encrypt-secret-please-change}
+    admin-bootstrap-token: ${SHOP_ADMIN_BOOTSTRAP_TOKEN:}
 
 mybatis-plus:
   mapper-locations: classpath*:mapper/**/*.xml

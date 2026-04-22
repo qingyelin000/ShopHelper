@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
+import { getCart } from '@/api/cart'
 import { createOrder } from '@/api/order'
 import { listMyAddresses } from '@/api/user'
 import type { UserAddress } from '@/types/user.d'
@@ -14,8 +15,15 @@ const cartStore = useCartStore()
 const checkedItems = computed(() => cartStore.checkedItems)
 const totalAmount = computed(() => cartStore.checkedAmount)
 const addressLoading = ref(false)
+const submitting = ref(false)
 const addresses = ref<UserAddress[]>([])
 const selectedAddressId = ref('')
+
+function formatSkuSpec(spec: Record<string, string | number | boolean | null>) {
+  return Object.entries(spec)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join(' / ')
+}
 
 async function loadAddresses() {
   addressLoading.value = true
@@ -39,15 +47,28 @@ async function handleSubmit() {
     ElMessage.warning('请先选择收货地址')
     return
   }
+
+  submitting.value = true
   try {
-    const { orderId } = await createOrder({
+    const order = await createOrder({
       addressId: selectedAddressId.value,
-      cartItemIds: checkedItems.value.map((i) => i.id),
+      items: checkedItems.value.map((item) => ({
+        skuId: item.skuId,
+        quantity: item.quantity,
+      })),
+      source: 'web',
     })
+    try {
+      cartStore.setSnapshot(await getCart())
+    } catch {
+      // 订单已创建成功，这里不阻断跳转
+    }
     ElMessage.success('下单成功')
-    router.replace(`/order/${orderId}`)
+    await router.replace(`/order/${order.orderId}`)
   } catch (err: any) {
     ElMessage.error(err.message || '下单失败')
+  } finally {
+    submitting.value = false
   }
 }
 
@@ -60,7 +81,6 @@ onMounted(() => {
   <div>
     <h2 class="text-lg font-bold mb-4">确认订单</h2>
 
-    <!-- 收货地址 -->
     <el-card shadow="never" class="mb-4" v-loading="addressLoading">
       <template #header><span class="font-medium">收货地址</span></template>
       <div v-if="addresses.length" class="flex flex-col gap-3">
@@ -81,28 +101,30 @@ onMounted(() => {
           </div>
         </el-radio-group>
       </div>
-      <p v-else class="text-gray-500 text-sm">暂无收货地址，请先通过用户中心接口创建地址</p>
+      <p v-else class="text-gray-500 text-sm">暂无收货地址，请先通过个人中心创建地址</p>
     </el-card>
 
-    <!-- 商品清单 -->
     <el-card shadow="never" class="mb-4">
       <template #header><span class="font-medium">商品清单</span></template>
-      <div v-for="item in checkedItems" :key="item.skuId" class="flex items-center gap-4 py-2 border-b border-gray-50 last:border-0">
+      <div
+        v-for="item in checkedItems"
+        :key="item.itemId"
+        class="flex items-center gap-4 py-2 border-b border-gray-50 last:border-0"
+      >
         <img :src="item.productImage" class="w-16 h-16 object-cover rounded" />
         <div class="flex-1">
           <p class="text-sm">{{ item.productName }}</p>
-          <p class="text-xs text-gray-400">{{ item.specJson }} × {{ item.quantity }}</p>
+          <p class="text-xs text-gray-400">{{ formatSkuSpec(item.skuSpec) }} × {{ item.quantity }}</p>
         </div>
-        <span class="text-primary">{{ formatPrice(item.price * item.quantity) }}</span>
+        <span class="text-primary">{{ formatPrice(item.totalPrice) }}</span>
       </div>
     </el-card>
 
-    <!-- 提交 -->
     <div class="flex justify-end items-center gap-4">
       <span class="text-lg">
         合计：<span class="text-primary font-bold text-xl">{{ formatPrice(totalAmount) }}</span>
       </span>
-      <el-button type="danger" size="large" @click="handleSubmit">提交订单</el-button>
+      <el-button type="danger" size="large" :loading="submitting" @click="handleSubmit">提交订单</el-button>
     </div>
   </div>
 </template>

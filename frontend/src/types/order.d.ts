@@ -1,53 +1,113 @@
-/** 订单状态 */
-export enum OrderStatus {
-  PENDING_PAY = 0,
-  PAID = 1,
-  SHIPPED = 2,
-  COMPLETED = 3,
-  CANCELLED = 4,
-}
+export type OrderStatus =
+  | 'PENDING_PAYMENT'
+  | 'PAID'
+  | 'SHIPPED'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'REFUNDING'
+  | 'REFUNDED'
 
-/** 订单状态标签映射 */
 export const OrderStatusLabel: Record<OrderStatus, string> = {
-  [OrderStatus.PENDING_PAY]: '待付款',
-  [OrderStatus.PAID]: '已付款',
-  [OrderStatus.SHIPPED]: '已发货',
-  [OrderStatus.COMPLETED]: '已完成',
-  [OrderStatus.CANCELLED]: '已取消',
+  PENDING_PAYMENT: '待付款',
+  PAID: '已付款',
+  SHIPPED: '已发货',
+  COMPLETED: '已完成',
+  CANCELLED: '已取消',
+  REFUNDING: '退款中',
+  REFUNDED: '已退款',
 }
 
-/** 订单项 */
-export interface OrderItem {
-  id: string
+export type OrderPaymentMethod = 'ALIPAY' | 'WECHAT' | 'MOCK'
+export type OrderSource = 'app' | 'web' | 'mini'
+
+export interface OrderSummary {
   orderId: string
-  productId: string
-  skuId: string
-  productName: string
-  productImage: string
-  specJson: string
-  price: number
-  quantity: number
-}
-
-/** 订单 */
-export interface Order {
-  id: string
-  userId: string
-  totalAmount: number
+  orderNo: string
+  orderStatus: OrderStatus
   payAmount: number
-  status: OrderStatus
-  addressSnapshot: string
-  remark: string
-  payTime: string | null
-  shipTime: string | null
-  completeTime: string | null
-  items: OrderItem[]
-  createdAt: string
+  itemCount: number
+  coverImage: string | null
+  createTime: string
+  expireTime: string | null
 }
 
-/** 下单请求 */
+export interface OrderAddressSnapshot {
+  receiverName: string
+  receiverPhone: string
+  fullAddress: string
+}
+
+export interface OrderItem {
+  itemId: string
+  productId: string
+  productName: string
+  productImage: string | null
+  skuSpec: Record<string, string | number | boolean | null>
+  unitPrice: number
+  quantity: number
+  totalPrice: number
+}
+
+export interface OrderDetail {
+  orderId: string
+  orderNo: string
+  orderStatus: OrderStatus
+  totalAmount: number
+  freightAmount: number
+  payAmount: number
+  payType: OrderPaymentMethod | null
+  source: OrderSource
+  remark: string | null
+  address: OrderAddressSnapshot
+  items: OrderItem[]
+  logistics: unknown | null
+  createTime: string
+  payTime: string | null
+}
+
 export interface CreateOrderRequest {
   addressId: string
-  cartItemIds: string[]
+  items: Array<{
+    skuId: string
+    quantity: number
+  }>
   remark?: string
+  source: OrderSource
+}
+
+export interface CreateOrderResponse {
+  orderId: string
+  orderNo: string
+  orderStatus: OrderStatus
+  totalAmount: number
+  payAmount: number
+  freightAmount: number
+  expireTime: string | null
+  createTime: string
+}
+
+export interface CancelOrderRequest {
+  reason: string
+}
+
+export interface CancelOrderResponse {
+  orderId: string
+  orderNo: string
+  orderStatus: OrderStatus
+  cancelTime: string
+  refundNote?: string | null
+}
+
+export interface PayOrderRequest {
+  paymentMethod: OrderPaymentMethod
+}
+
+export interface PayOrderResponse {
+  orderId: string
+  orderNo: string
+  paymentMethod: OrderPaymentMethod
+  paymentSessionId: string
+  payUrl: string | null
+  qrCode: string | null
+  note: string | null
 }

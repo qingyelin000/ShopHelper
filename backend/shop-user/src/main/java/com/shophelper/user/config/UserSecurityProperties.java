@@ -18,4 +18,6 @@ public class UserSecurityProperties {
 
     @NotBlank
     private String phoneEncryptSecret;
+
+    private String adminBootstrapToken;
 }

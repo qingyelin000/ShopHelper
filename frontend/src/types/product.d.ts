@@ -1,46 +1,71 @@
-/** 商品分类 */
-export interface Category {
+export interface ProductSummary {
   id: string
+  categoryId: string
   name: string
-  parentId: string
-  level: number
-  sort: number
-}
-
-/** 商品 SKU */
-export interface ProductSku {
-  id: string
-  productId: string
-  specJson: string
+  mainImage: string
   price: number
-  stock: number
   salesCount: number
 }
 
-/** 商品 */
-export interface Product {
+export interface ProductSku {
   id: string
-  name: string
-  categoryId: string
-  categoryName?: string
-  mainImage: string
-  images: string[]
-  description: string
-  minPrice: number
-  maxPrice: number
-  totalStock: number
-  totalSales: number
-  status: number
-  skuList?: ProductSku[]
-  createdAt: string
+  skuCode: string
+  spec: Record<string, string | number | boolean | null>
+  price: number
+  stock: number
+  status: string
 }
 
-/** 搜索结果商品 */
+export interface ProductDetail {
+  id: string
+  categoryId: string
+  categoryName?: string | null
+  name: string
+  subTitle?: string | null
+  mainImage: string
+  description?: string | null
+  price: number
+  salesCount: number
+  status: string
+  skuList: ProductSku[]
+  createTime: string
+  updateTime: string
+}
+
+export interface SearchHighlight {
+  name?: string
+}
+
 export interface SearchProduct {
   id: string
   name: string
   mainImage: string
   price: number
   salesCount: number
-  highlightName?: string
+  highlight?: SearchHighlight
+}
+
+export interface SearchPriceRangeBucket {
+  label: string
+  count: number
+}
+
+export interface SearchCategoryBucket {
+  id: string
+  name: string
+  count: number
+}
+
+export interface SearchAggregations {
+  priceRanges: SearchPriceRangeBucket[]
+  categories: SearchCategoryBucket[]
+}
+
+export interface SearchProductPage {
+  list: SearchProduct[]
+  total: number
+  pageNum: number
+  pageSize: number
+  hasNext: boolean
+  aggregations: SearchAggregations
 }

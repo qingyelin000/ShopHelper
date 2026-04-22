@@ -11,10 +11,16 @@ spring:
       config:
         server-addr: ${NACOS_ADDR:127.0.0.1:8848}
         file-extension: yaml
+        import-check:
+          enabled: false
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
       port: ${REDIS_PORT:6379}
+
+shop:
+  jwt:
+    secret: ${SHOP_JWT_SECRET:${AUTH_JWT_SECRET:shophelper-auth-jwt-secret-please-change-at-once}}
 
 management:
   endpoints:

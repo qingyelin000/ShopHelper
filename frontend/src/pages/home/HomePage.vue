@@ -3,11 +3,11 @@ import { ref, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { listProducts } from '@/api/product'
 import { getMyRecommendations } from '@/api/recommend'
-import type { Product } from '@/types/product.d'
+import type { ProductSummary } from '@/types/product.d'
 import ProductCard from '@/components/ProductCard.vue'
 import type { RecommendationItem } from '@/types/recommend.d'
 
-const products = ref<Product[]>([])
+const products = ref<ProductSummary[]>([])
 const loading = ref(false)
 const recommendationAlgorithm = ref('')
 const userStore = useUserStore()
@@ -33,20 +33,14 @@ onMounted(async () => {
   }
 })
 
-function toProductCardModel(item: RecommendationItem): Product {
+function toProductCardModel(item: RecommendationItem): ProductSummary {
   return {
     id: item.productId,
-    name: item.name,
     categoryId: '',
+    name: item.name,
     mainImage: item.mainImage,
-    images: [],
-    description: '',
-    minPrice: item.price,
-    maxPrice: item.price,
-    totalStock: 0,
-    totalSales: item.salesCount,
-    status: 1,
-    createdAt: '',
+    price: item.price,
+    salesCount: item.salesCount,
   }
 }
 </script>
